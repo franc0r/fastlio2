@@ -29,7 +29,7 @@ def generate_launch_description():
                 executable="lio_node",
                 name="lio_node",
                 output="screen",
-                prefix=['gdbserver localhost:3000'],
+                # prefix=['gdbserver localhost:3000'],
                 parameters=[
                     {"config_path": config_path.perform(launch.LaunchContext())},
                     {"use_sim_time": use_sim_time},

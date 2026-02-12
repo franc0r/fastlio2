@@ -1,16 +1,17 @@
 cmake_minimum_required(VERSION 3.8)
 project(fastlio2)
 
-set(CMAKE_BUILD_TYPE "Release")
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexceptions" )
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -fexceptions")
-
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexceptions" )
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -fexceptions")
+  add_compile_options(-O3)
+endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-O3)
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
@@ -27,7 +28,7 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(livox_ros_driver2 REQUIRED)
+find_package(livox_ros_driver2)
 find_package(pcl_conversions REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
@@ -37,20 +38,44 @@ find_package(Eigen3 REQUIRED)
 find_package(Sophus REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}   ${OpenMP_C_FLAGS}")
 
-set(SRC_LIST src/map_builder/commons.cpp
-             src/map_builder/ieskf.cpp
-             src/map_builder/imu_processor.cpp
-             src/map_builder/ikd_Tree.cpp
-             src/map_builder/lidar_processor.cpp
-             src/map_builder/map_builder.cpp
-             src/utils.cpp)
+# sources
+set(SRC_LIST
+  src/map_builder/commons.cpp
+  src/map_builder/ieskf.cpp
+  src/map_builder/imu_processor.cpp
+  src/map_builder/ikd_Tree.cpp
+  src/map_builder/lidar_processor.cpp
+  src/map_builder/map_builder.cpp
+  src/utils.cpp
+)
+add_executable(lio_node
+  src/lio_node.cpp
+  ${SRC_LIST}
+)
 
-add_executable(lio_node src/lio_node.cpp ${SRC_LIST})
-ament_target_dependencies(lio_node rclcpp std_msgs tf2 tf2_ros nav_msgs sensor_msgs livox_ros_driver2 pcl_conversions geometry_msgs Sophus)
+# dependencies
+set(LIB_LIST
+  rclcpp
+  std_msgs
+  tf2
+  tf2_ros
+  nav_msgs
+  sensor_msgs
+  geometry_msgs
+  pcl_conversions
+  Sophus
+)
+if (livox_ros_driver2_FOUND)
+  list(APPEND LIB_LIST livox_ros_driver2)
+endif()
+
+ament_target_dependencies(
+  lio_node
+  ${LIB_LIST}
+)
 target_include_directories(lio_node
   PRIVATE
   "/opt/ros/jazzy/include"

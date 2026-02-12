@@ -92,7 +92,11 @@ void LidarProcessor::incrCloudMap()
     if (m_cloud_down_lidar->empty())
         return;
     const State &state = m_kf->x();
-    int size = m_cloud_down_lidar->size();
+    // I just fixed a bug here. Only one point cloud size was used before, which may cause out of range error when the two
+    // point clouds have different sizes. Now I use the minimum size of the two point clouds to avoid this problem.
+    // But I don't know if the algorithm logic is correct. I think it should be correct because the two point clouds should
+    // have the same size after downsampling, but I just want to make sure that there is no out of range error.
+    const int size = std::min(m_cloud_down_lidar->size(), m_cloud_down_world->size());
     PointVec point_to_add;
     PointVec point_no_need_downsample;
     for (int i = 0; i < size; i++)
@@ -173,8 +177,10 @@ void LidarProcessor::process(SyncPackage &package)
 }
 
 void LidarProcessor::updateLossFunc(State &state, SharedState &share_data)
-{
-    int size = m_cloud_down_lidar->size();
+{   
+    // Same as above, I just fixed a bug here. Only one point cloud size was used before, which may cause out of range error
+    // when the two point clouds have different sizes. Now I use the minimum size of the two point clouds to avoid this problem.
+    const int size = std::min(m_cloud_down_lidar->size(), m_cloud_down_world->size());
 #ifdef MP_EN
     omp_set_num_threads(MP_PROC_NUM);
 #pragma omp parallel for

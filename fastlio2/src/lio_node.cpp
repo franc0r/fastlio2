@@ -4,10 +4,13 @@
 #include <memory>
 #include <iostream>
 #include <chrono>
-// #include <filesystem>
+
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
+
+#ifdef LIVOX_ROS_DRIVER2
 #include <livox_ros_driver2/msg/custom_msg.hpp>
+#endif
 
 #include "utils.h"
 #include "map_builder/commons.h"
@@ -63,9 +66,11 @@ public:
                 imuCB(msg, false);
             }
         );
+#ifdef LIVOX_ROS_DRIVER2
         m_lidar_sub = this->create_subscription<livox_ros_driver2::msg::CustomMsg>(
             m_node_config.lidar_topic, 10, std::bind(&LIONode::lidarCB, this, std::placeholders::_1)
         );
+#endif
         m_pointcloud_sub = this->create_subscription<sensor_msgs::msg::PointCloud2>(
             m_node_config.pointcloud_topic, 10, std::bind(&LIONode::pointCloudCB, this, std::placeholders::_1)
         );
@@ -147,6 +152,7 @@ public:
                                              timestamp);
         m_state_data.last_imu_time = timestamp;
     }
+#ifdef LIVOX_ROS_DRIVER2
     void lidarCB(const livox_ros_driver2::msg::CustomMsg::SharedPtr msg)
     {
         CloudType::Ptr cloud = Utils::livox2PCL(msg, m_builder_config.lidar_filter_num, m_builder_config.lidar_min_range, m_builder_config.lidar_max_range);
@@ -160,6 +166,7 @@ public:
         m_state_data.lidar_buffer.emplace_back(timestamp, cloud);
         m_state_data.last_lidar_time = timestamp;
     }
+#endif
     void pointCloudCB(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     {
         std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -309,7 +316,9 @@ public:
     }
 
 private:
+#ifdef LIVOX_ROS_DRIVER2
     rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>::SharedPtr m_lidar_sub;
+#endif
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr m_pointcloud_sub;
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr m_imu_sub_mps2;
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr m_imu_sub_g;

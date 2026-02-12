@@ -3,6 +3,7 @@
 #include <optional>
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 
+#ifdef LIVOX_ROS_DRIVER2
 pcl::PointCloud<pcl::PointXYZINormal>::Ptr Utils::livox2PCL(const livox_ros_driver2::msg::CustomMsg::SharedPtr msg, int filter_num, double min_range, double max_range)
 {
     pcl::PointCloud<pcl::PointXYZINormal>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZINormal>);
@@ -29,8 +30,10 @@ pcl::PointCloud<pcl::PointXYZINormal>::Ptr Utils::livox2PCL(const livox_ros_driv
     }
     return cloud;
 }
+#endif
 
-pcl::PointCloud<pcl::PointXYZINormal>::Ptr Utils::pointCloud2ToPCL(const sensor_msgs::msg::PointCloud2 &msg, int filter_num, double min_range, double max_range)
+pcl::PointCloud<pcl::PointXYZINormal>::Ptr Utils::pointCloud2ToPCL(
+    const sensor_msgs::msg::PointCloud2 &msg, int filter_num, double min_range, double max_range)
 {
     pcl::PointCloud<pcl::PointXYZINormal>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZINormal>);
     const size_t point_num = static_cast<size_t>(msg.width) * static_cast<size_t>(msg.height);
@@ -48,9 +51,9 @@ pcl::PointCloud<pcl::PointXYZINormal>::Ptr Utils::pointCloud2ToPCL(const sensor_
 
     for (size_t i = 0; iter_x != iter_x.end(); ++i, ++iter_x, ++iter_y, ++iter_z, ++iter_intensity) {
         // filter out points based on filter_num
-        if ((i % static_cast<size_t>(filter_num)) != 0)
+        if ((i % static_cast<size_t>(filter_num)) != 0) {
             continue;
-
+        }
         const float x = *iter_x;
         const float y = *iter_y;
         const float z = *iter_z;
@@ -58,8 +61,9 @@ pcl::PointCloud<pcl::PointXYZINormal>::Ptr Utils::pointCloud2ToPCL(const sensor_
         const float range_sq = x * x + y * y + z * z;
 
         // filter out points based on range
-        if (range_sq < min_range_sq || range_sq > max_range_sq)
+        if (range_sq < min_range_sq || range_sq > max_range_sq) {
             continue;
+        }
 
         // valid point, add to cloud
         pcl::PointXYZINormal p;
@@ -68,9 +72,6 @@ pcl::PointCloud<pcl::PointXYZINormal>::Ptr Utils::pointCloud2ToPCL(const sensor_
         p.z = z;
         p.intensity = intensity;
         p.curvature = 0.0f;
-        p.normal_x = 0.0f;
-        p.normal_y = 0.0f;
-        p.normal_z = 0.0f;
         cloud->push_back(p);
     }
 
