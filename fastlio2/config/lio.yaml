@@ -1,12 +1,14 @@
-imu_topic: /livox/imu
+imu_topic: /eduard/imu
+imu_livox_topic: /livox/imu
+pointcloud_topic: /eduard/livox/scan/points
 lidar_topic: /livox/lidar
 body_frame: body
-world_frame: lidar
+world_frame: map
 print_time_cost: false
 
 lidar_filter_num: 6
-lidar_min_range: 0.5
-lidar_max_range: 30.0
+lidar_min_range: 0.2
+lidar_max_range: 40.0
 scan_resolution: 0.15
 map_resolution: 0.3
 
@@ -23,10 +25,16 @@ imu_init_num: 20
 near_search_num: 5
 ieskf_max_iter: 5
 
-gravity_align: true
+gravity_align: false
 esti_il: false
 
-r_il: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
-t_il: [-0.011, -0.02329, 0.04412]
+# Livox Mid 360
+# r_il: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+# t_il: [-0.011, -0.02329, 0.04412]
+# t_il: [0.0, 0.0, 0.0]
+
+# Gazebo Simulation with Eduard
+r_il: [0.906307787, 0, 0.422618262, 0, 1, 0, -0.422618262, 0, 0.906307787]
+t_il: [0.145, 0, 0.165]
 
 lidar_cov_inv: 1000.0

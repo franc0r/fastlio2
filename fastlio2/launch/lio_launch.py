@@ -14,16 +14,26 @@ def generate_launch_description():
         [FindPackageShare("fastlio2"), "config", "lio.yaml"]
     )
 
+    use_sim_time = launch.substitutions.LaunchConfiguration("use_sim_time")
+
+    declare_use_sim_time = launch.actions.DeclareLaunchArgument(
+        "use_sim_time", default_value="true"
+    )
 
     return launch.LaunchDescription(
         [
+            declare_use_sim_time,
             launch_ros.actions.Node(
                 package="fastlio2",
                 namespace="fastlio2",
                 executable="lio_node",
                 name="lio_node",
                 output="screen",
-                parameters=[{"config_path": config_path.perform(launch.LaunchContext())}]
+                prefix=['gdbserver localhost:3000'],
+                parameters=[
+                    {"config_path": config_path.perform(launch.LaunchContext())},
+                    {"use_sim_time": use_sim_time},
+                ]
             ),
             launch_ros.actions.Node(
                 package="rviz2",
@@ -32,6 +42,9 @@ def generate_launch_description():
                 name="rviz2",
                 output="screen",
                 arguments=["-d", rviz_cfg.perform(launch.LaunchContext())],
+                parameters=[
+                    {"use_sim_time": use_sim_time},
+                ]
             ),
         ]
     )

@@ -50,7 +50,11 @@ set(SRC_LIST src/map_builder/commons.cpp
              src/utils.cpp)
 
 add_executable(lio_node src/lio_node.cpp ${SRC_LIST})
-ament_target_dependencies(lio_node rclcpp std_msgs tf2 tf2_ros nav_msgs sensor_msgs livox_ros_driver2 pcl_conversions geometry_msgs)
+ament_target_dependencies(lio_node rclcpp std_msgs tf2 tf2_ros nav_msgs sensor_msgs livox_ros_driver2 pcl_conversions geometry_msgs Sophus)
+target_include_directories(lio_node
+  PRIVATE
+  "/opt/ros/jazzy/include"
+)
 target_link_libraries(lio_node
   yaml-cpp
   ${PCL_LIBRARIES}
