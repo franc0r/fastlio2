@@ -49,6 +49,7 @@ set(SRC_LIST
   src/map_builder/ikd_Tree.cpp
   src/map_builder/lidar_processor.cpp
   src/map_builder/map_builder.cpp
+  src/map_builder/velocity_processor.cpp
   src/utils.cpp
 )
 add_executable(lio_node
@@ -70,6 +71,28 @@ set(LIB_LIST
 )
 if (livox_ros_driver2_FOUND)
   list(APPEND LIB_LIST livox_ros_driver2)
+
+  add_executable(livox_pointcloud_to_pointcloud2
+    src/livox_pointcloud_to_pointcloud2_node.cpp
+    src/utils.cpp
+  )
+  target_link_libraries(livox_pointcloud_to_pointcloud2
+    ${PCL_LIBRARIES}
+  )
+  ament_target_dependencies(
+    livox_pointcloud_to_pointcloud2
+    "rclcpp"
+    "std_msgs"
+    "sensor_msgs"
+    "pcl_conversions"
+    "livox_ros_driver2"
+  )
+  target_compile_definitions(livox_pointcloud_to_pointcloud2
+    PRIVATE
+    -DLIVOX_ROS_DRIVER2
+  )
+
+  install(TARGETS livox_pointcloud_to_pointcloud2 DESTINATION lib/${PROJECT_NAME})
 endif()
 
 ament_target_dependencies(
