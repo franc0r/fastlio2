@@ -52,6 +52,12 @@ struct Config
     V3D t_il = V3D::Zero();
 
     double lidar_cov_inv = 1000.0;
+    
+    // Velocity measurement parameters
+    bool enable_velocity_measurement = false;
+    double velocity_cov_x = 0.01;
+    double velocity_cov_y = 0.01;
+    double velocity_cov_z = 0.01;
 };
 
 struct IMUData

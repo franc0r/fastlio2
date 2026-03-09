@@ -3,6 +3,7 @@ MapBuilder::MapBuilder(Config &config, std::shared_ptr<IESKF> kf) : m_config(con
 {
     m_imu_processor = std::make_shared<IMUProcessor>(config, kf);
     m_lidar_processor = std::make_shared<LidarProcessor>(config, kf);
+    m_velocity_processor = std::make_shared<VelocityProcessor>(config, kf);
     m_status = BuilderStatus::IMU_INIT;
 }
 

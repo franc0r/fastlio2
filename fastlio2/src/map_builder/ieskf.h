@@ -69,6 +69,8 @@ public:
 
     void update();
 
+    void updateVelocity(const V3D &velocity_measurement, const M3D &velocity_cov);
+
     State &x() { return m_x; }
 
     M21D &P() { return m_P; }

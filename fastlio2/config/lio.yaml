@@ -2,6 +2,7 @@ imu_topic: /eduard/imu
 imu_livox_topic: /livox/imu
 pointcloud_topic: /eduard/livox/scan/points
 lidar_topic: /eduard/livox/livox_custom_msg
+odometry_topic: /eduard/odom
 body_frame: body
 world_frame: map
 print_time_cost: false
@@ -38,3 +39,8 @@ r_il: [0.9063077869, 0, 0.4226182620, 0, 1, 0, -0.4226182620, 0, 0.9063077869]
 t_il: [0.145, 0, 0.165]
 
 lidar_cov_inv: 1000.0
+# Velocity measurement parameters
+enable_velocity_measurement: true
+velocity_cov_x: 0.01
+velocity_cov_y: 0.01
+velocity_cov_z: 0.01

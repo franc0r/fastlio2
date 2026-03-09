@@ -7,6 +7,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 
 #ifdef LIVOX_ROS_DRIVER2
 #include <livox_ros_driver2/msg/custom_msg.hpp>
@@ -31,6 +32,7 @@ struct NodeConfig
     std::string imu_livox_topic = "/livox/imu";
     std::string pointcloud_topic = "/livox/pointcloud";
     std::string lidar_topic = "/livox/lidar";
+    std::string odometry_topic = "/odom";
     std::string body_frame = "body";
     std::string world_frame = "lidar";
     bool print_time_cost = false;
@@ -40,10 +42,13 @@ struct StateData
     bool lidar_pushed = false;
     std::mutex imu_mutex;
     std::mutex lidar_mutex;
+    std::mutex odometry_mutex;
     double last_lidar_time = -1.0;
     double last_imu_time = -1.0;
+    double last_odometry_time = -1.0;
     std::deque<IMUData> imu_buffer;
     std::deque<std::pair<double, pcl::PointCloud<pcl::PointXYZINormal>::Ptr>> lidar_buffer;
+    std::deque<std::pair<double, V3D>> odometry_buffer; // {timestamp, velocity}
     nav_msgs::msg::Path path;
 };
 
@@ -73,6 +78,13 @@ public:
 #endif
         m_pointcloud_sub = this->create_subscription<sensor_msgs::msg::PointCloud2>(
             m_node_config.pointcloud_topic, 10, std::bind(&LIONode::pointCloudCB, this, std::placeholders::_1)
+        );
+
+        m_odometry_sub = this->create_subscription<nav_msgs::msg::Odometry>(
+            m_node_config.odometry_topic, rclcpp::QoS(10).best_effort(),
+            [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
+                odometryCB(msg);
+            }
         );
 
         m_body_cloud_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("body_cloud", 10000);
@@ -108,6 +120,7 @@ public:
         m_node_config.imu_livox_topic = config["imu_livox_topic"].as<std::string>();
         m_node_config.pointcloud_topic = config["pointcloud_topic"].as<std::string>();
         m_node_config.lidar_topic = config["lidar_topic"].as<std::string>();
+        m_node_config.odometry_topic = config["odometry_topic"] ? config["odometry_topic"].as<std::string>() : "/odom";
         m_node_config.body_frame = config["body_frame"].as<std::string>();
         m_node_config.world_frame = config["world_frame"].as<std::string>();
         m_node_config.print_time_cost = config["print_time_cost"].as<bool>();
@@ -135,6 +148,17 @@ public:
         m_builder_config.t_il << t_il_vec[0], t_il_vec[1], t_il_vec[2];
         m_builder_config.r_il << r_il_vec[0], r_il_vec[1], r_il_vec[2], r_il_vec[3], r_il_vec[4], r_il_vec[5], r_il_vec[6], r_il_vec[7], r_il_vec[8];
         m_builder_config.lidar_cov_inv = config["lidar_cov_inv"].as<double>();
+
+        // Load velocity measurement parameters
+        m_builder_config.enable_velocity_measurement = config["enable_velocity_measurement"] ? config["enable_velocity_measurement"].as<bool>() : false;
+        if (config["velocity_cov_x"])
+            m_builder_config.velocity_cov_x = config["velocity_cov_x"].as<double>();
+        if (config["velocity_cov_y"])
+            m_builder_config.velocity_cov_y = config["velocity_cov_y"].as<double>();
+        if (config["velocity_cov_z"])
+            m_builder_config.velocity_cov_z = config["velocity_cov_z"].as<double>();
+
+        RCLCPP_INFO(this->get_logger(), "Velocity measurement enabled: %s", m_builder_config.enable_velocity_measurement ? "true" : "false");
     }
 
     void imuCB(const sensor_msgs::msg::Imu::SharedPtr msg, const bool with_unit_g = false)
@@ -184,6 +208,21 @@ public:
         m_state_data.last_lidar_time = timestamp;
     }
 
+    void odometryCB(const nav_msgs::msg::Odometry::SharedPtr msg)
+    {
+        std::lock_guard<std::mutex> lock(m_state_data.odometry_mutex);
+        double timestamp = Utils::getSec(msg->header);
+        if (timestamp < m_state_data.last_odometry_time)
+        {
+            RCLCPP_WARN(this->get_logger(), "Odometry Message is out of order");
+            std::deque<std::pair<double, V3D>>().swap(m_state_data.odometry_buffer);
+        }
+        // Extract velocity from odometry message (typically in body frame)
+        V3D velocity(msg->twist.twist.linear.x, msg->twist.twist.linear.y, msg->twist.twist.linear.z);
+        m_state_data.odometry_buffer.emplace_back(timestamp, velocity);
+        m_state_data.last_odometry_time = timestamp;
+    }
+
     bool syncPackage()
     {
         if (m_state_data.imu_buffer.empty() || m_state_data.lidar_buffer.empty())
@@ -206,6 +245,18 @@ public:
             m_package.imus.emplace_back(m_state_data.imu_buffer.front());
             m_state_data.imu_buffer.pop_front();
         }
+
+        // Process velocity measurements from odometry buffer
+        if (m_builder_config.enable_velocity_measurement)
+        {
+            std::lock_guard<std::mutex> lock(m_state_data.odometry_mutex);
+            while (!m_state_data.odometry_buffer.empty() && m_state_data.odometry_buffer.front().first <= m_package.cloud_end_time)
+            {
+                m_builder->velocity_processor()->addMeasurement(m_state_data.odometry_buffer.front().second, m_state_data.odometry_buffer.front().first);
+                m_state_data.odometry_buffer.pop_front();
+            }
+        }
+
         m_state_data.lidar_buffer.pop_front();
         m_state_data.lidar_pushed = false;
         return true;
@@ -289,6 +340,13 @@ public:
             return;
         auto t1 = std::chrono::high_resolution_clock::now();
         m_builder->process(m_package);
+        
+        // Process velocity measurements if enabled
+        if (m_builder_config.enable_velocity_measurement && m_builder->velocity_processor()->hasMeasurements())
+        {
+            m_builder->velocity_processor()->processMeasurements();
+        }
+        
         auto t2 = std::chrono::high_resolution_clock::now();
 
         if (m_node_config.print_time_cost)
@@ -322,6 +380,7 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr m_pointcloud_sub;
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr m_imu_sub_mps2;
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr m_imu_sub_g;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr m_odometry_sub;
 
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr m_body_cloud_pub;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr m_world_cloud_pub;

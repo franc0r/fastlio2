@@ -118,3 +118,25 @@ void IESKF::update()
     L.block<3, 3>(6, 6) = Jr(delta.segment<3>(6));
     m_P = L * H.inverse() * L.transpose();
 }
+
+void IESKF::updateVelocity(const V3D &velocity_measurement, const M3D &velocity_cov)
+{
+    // Measurement Jacobian: Wir messen nur die Geschwindigkeit (Zustand Index 12-14)
+    Eigen::Matrix<double, 3, 21> H = Eigen::Matrix<double, 3, 21>::Zero();
+    H.block<3, 3>(0, 12) = Eigen::Matrix3d::Identity();
+
+    // Innovation (Messfehler)
+    V3D innovation = velocity_measurement - m_x.v;
+
+    // Kalman Gain
+    M3D S = H * m_P * H.transpose() + velocity_cov;
+    Eigen::Matrix<double, 21, 3> K = m_P * H.transpose() * S.inverse();
+
+    // State Update
+    V21D state_delta = K * innovation;
+    m_x += state_delta;
+
+    // Covariance Update (Joseph form für numerische Stabilität)
+    M21D I_minus_KH = M21D::Identity() - K * H;
+    m_P = I_minus_KH * m_P * I_minus_KH.transpose() + K * velocity_cov * K.transpose();
+}
